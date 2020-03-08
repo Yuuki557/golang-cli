@@ -3,31 +3,32 @@ package main
 import (
 	"errors"
 	"flag"
-	"fmt"
 	"os"
+	"sync"
 )
 
 func main() {
 	flag.Parse()
-	for _, name := range flag.Args() {
-		result := make(chan string)
-		go touch(name, result)
-		fmt.Print(<-result)
-	}
+	execute(flag.Args())
 }
 
-func touch(fileName string, ch chan<- string) {
+func execute(fileNames []string) {
+	wg := sync.WaitGroup{}
+	for _, name := range fileNames {
+		wg.Add(1)
+		go touch(name, &wg)
+	}
+	wg.Wait()
+}
+
+func touch(fileName string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	if fileExists(fileName) {
-		ch <- fmt.Sprintf("%s already exist\n", fileName)
 		return
 	}
 
-	if err := createFile(fileName); err == nil {
-		ch <- fmt.Sprintf("%s is created\n", fileName)
-		return
-	}
-
-	ch <- fmt.Sprintf("Failed to create %s", fileName)
+	createFile(fileName)
 }
 
 func fileExists(name string) bool {

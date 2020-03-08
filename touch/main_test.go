@@ -1,15 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"os"
+	"sync"
 	"testing"
 )
 
 func TestFileExists(t *testing.T) {
 	const fileName = "file"
 
-	if exist := fileExists(fileName); exist == true {
+	if exist := fileExists(fileName); exist != false {
 		t.Fatalf("it should return false because %s doesn't exist", fileName)
 	}
 
@@ -21,7 +21,7 @@ func TestFileExists(t *testing.T) {
 	defer os.Remove(fileName)
 	defer file.Close()
 
-	if exist := fileExists(fileName); exist == false {
+	if exist := fileExists(fileName); exist != true {
 		t.Fatalf("it should return true because %s exists", fileName)
 	}
 }
@@ -41,16 +41,36 @@ func TestCreateFile(t *testing.T) {
 
 func TestTouch(t *testing.T) {
 	const fileName = "file"
-	ch := make(chan string)
+	wg := sync.WaitGroup{}
 
-	go touch(fileName, ch)
+	wg.Add(1)
+	go touch(fileName, &wg)
 	defer os.Remove(fileName)
-	if <-ch != fmt.Sprintf("%s is created\n", fileName) {
-		t.Fatalf("made bug")
+	wg.Wait()
+	if !fileExists(fileName) {
+		t.Fatalf("it should create %s", fileName)
 	}
 
-	go touch(fileName, ch)
-	if <-ch != fmt.Sprintf("%s already exist\n", fileName) {
-		t.Fatalf("made bug")
+	wg.Add(1)
+	go touch(fileName, &wg)
+	wg.Wait()
+	if !fileExists(fileName) {
+		t.Fatalf("it should remain %s", fileName)
+	}
+}
+
+func TestExecute(t *testing.T) {
+	fileNames := []string{"file1", "file2", "file3"}
+
+	execute(fileNames)
+	defer func() {
+		for _, name := range fileNames {
+			os.Remove(name)
+		}
+	}()
+	for _, name := range fileNames {
+		if exist := fileExists(name); exist != true {
+			t.Fatalf("it should create %s", name)
+		}
 	}
 }
